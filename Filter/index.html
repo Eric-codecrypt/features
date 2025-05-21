@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>🔎 Pesquisa Turbo 20.000% - Topzera</title>
+
+    <!-- Bootstrap 5 CSS + Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" />
+
+    <style>
+        /* Reset e base */
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            transition: background-color 0.5s ease, color 0.5s ease;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            min-height: 100vh;
+            padding-bottom: 3rem;
+        }
+        :root {
+            --bg: #f8f9fa;
+            --text: #212529;
+            --card-bg: #fff;
+            --card-shadow: rgba(0,0,0,0.1);
+            --highlight-bg: #0d6efd;
+            --highlight-text: #fff;
+            --fav-color: #ffc107;
+        }
+        [data-theme="dark"] {
+            --bg: #121212;
+            --text: #eee;
+            --card-bg: #1e1e1e;
+            --card-shadow: rgba(255,255,255,0.1);
+            --highlight-bg: #0d6efd;
+            --highlight-text: #fff;
+            --fav-color: #ffca28;
+        }
+
+        /* Container */
+        .container {
+            max-width: 900px;
+        }
+
+        /* Search Box */
+        .search-box {
+            position: relative;
+            margin-bottom: 1rem;
+        }
+        .search-box input {
+            border-radius: 30px;
+            padding: 12px 48px 12px 20px;
+            outline: none;
+            font-size: 1.2rem;
+            box-shadow: 0 2px 6px var(--card-shadow);
+            transition: box-shadow 0.3s ease;
+        }
+        .search-box input:focus {
+            box-shadow: 0 4px 15px var(--highlight-bg);
+        }
+        .search-box i {
+            position: absolute;
+            right: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #888;
+            font-size: 1.3rem;
+            pointer-events: none;
+        }
+
+        /* Autocomplete suggestions */
+        #autocomplete-list {
+            position: absolute;
+            top: 110%;
+            left: 0;
+            right: 0;
+            background: var(--card-bg);
+            border-radius: 8px;
+            box-shadow: 0 4px 12px var(--card-shadow);
+            max-height: 220px;
+            overflow-y: auto;
+            z-index: 1100;
+            font-size: 1rem;
+        }
+        #autocomplete-list div {
+            padding: 8px 12px;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+        #autocomplete-list div:hover,
+        #autocomplete-list .autocomplete-active {
+            background-color: var(--highlight-bg);
+            color: var(--highlight-text);
+        }
+
+        /* Cards Grid */
+        #results {
+            display: grid;
+            grid-template-columns: repeat(auto-fit,minmax(280px,1fr));
+            gap: 1.25rem;
+        }
+
+        /* Card */
+        .card-item {
+            background-color: var(--card-bg);
+            border-radius: 12px;
+            box-shadow: 0 2px 8px var(--card-shadow);
+            opacity: 0;
+            transform: translateY(10px);
+            transition: opacity 0.4s ease, transform 0.4s ease, box-shadow 0.3s ease;
+            cursor: pointer;
+            user-select: none;
+            display: none; /* Start hidden */
+        }
+        .card-item.show {
+            display: block;
+            opacity: 1;
+            transform: translateY(0);
+        }
+        .card-item:hover,
+        .card-item.selected {
+            box-shadow: 0 8px 24px var(--highlight-bg);
+            border: 2px solid var(--highlight-bg);
+            background-color: var(--highlight-bg);
+            color: var(--highlight-text);
+        }
+        .card-item:hover .card-title,
+        .card-item.selected .card-title {
+            text-decoration: underline;
+        }
+
+        /* Card content */
+        .card-title {
+            font-weight: 700;
+            font-size: 1.25rem;
+            margin-bottom: 0.25rem;
+            transition: color 0.3s ease;
+        }
+        .card-text {
+            font-size: 0.95rem;
+            opacity: 0.8;
+            transition: opacity 0.3s ease;
+        }
+        .card-item:hover .card-text,
+        .card-item.selected .card-text {
+            opacity: 1;
+        }
+
+        /* Highlight mark */
+        mark {
+            background-color: var(--highlight-bg);
+            color: var(--highlight-text);
+            font-weight: 700;
+            padding: 2px 6px;
+            border-radius: 4px;
+            box-shadow: 0 0 5px rgba(0,0,0,0.15);
+        }
+
+        /* Tooltip */
+        .tooltip-custom {
+            position: fixed;
+            max-width: 280px;
+            background: var(--card-bg);
+            color: var(--text);
+            border-radius: 8px;
+            padding: 12px 15px;
+            box-shadow: 0 6px 18px rgba(0,0,0,0.15);
+            font-size: 0.9rem;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            z-index: 1200;
+            user-select: none;
+            line-height: 1.3;
+        }
+
+        /* Favorite icon */
+        .fav-icon {
+            position: absolute;
+            top: 10px;
+            right: 12px;
+            font-size: 1.5rem;
+            color: var(--fav-color);
+            cursor: pointer;
+            transition: transform 0.25s ease;
+            user-select: none;
+        }
+        .fav-icon.favorited {
+            transform: scale(1.2);
+        }
+
+        /* Filters */
+        #filters {
+            margin-bottom: 1.5rem;
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+        .filter-btn {
+            cursor: pointer;
+            border-radius: 20px;
+            padding: 6px 14px;
+            background-color: var(--card-bg);
+            border: 1.5px solid var(--highlight-bg);
+            color: var(--highlight-bg);
+            font-weight: 600;
+            user-select: none;
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+        .filter-btn.active {
+            background-color: var(--highlight-bg);
+            color: var(--highlight-text);
+        }
+
+        /* Loader */
+        #loader {
+            display: none;
+            text-align: center;
+            margin-top: 2rem;
+        }
+        #loader.show {
+            display: block;
+        }
+
+        /* Accessibility Live Region */
+        #aria-live {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            overflow: hidden;
+            clip: rect(1px,1px,1px,1px);
+            clip-path: inset(50%);
+            white-space: nowrap;
+        }
+
+        /* Dark mode toggle button */
+        #darkToggle {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            border-radius: 50%;
+            border: none;
+            background-color: var(--highlight-bg);
+            color: var(--highlight-text);
+            width: 48px;
+            height: 48px;
+            font-size: 1.6rem;
+            box-shadow: 0 4px 12px var(--card-shadow);
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            z-index: 1300;
+        }
+        #darkToggle:hover {
+            background-color: #0742c2;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container py-5" role="main" aria-label="Sistema de pesquisa turbo topzera">
+    <h1 class="mb-4 text-center fw-bold" style="user-select:none;">🔎 Pesquisa Turbo 20.000%</h1>
+
+    <!-- Search Box -->
+    <div class="search-box" aria-haspopup="listbox" aria-owns="autocomplete-list" aria-expanded="false">
+        <input type="search" id="searchInput" class="form-control shadow" placeholder="Pesquisar projetos..." autocomplete="off" aria-autocomplete="list" aria-controls="autocomplete-list" aria-activedescendant="" />
+        <i class="bi bi-search"></i>
+        <div id="autocomplete-list" role="listbox" tabindex="-1"></div>
+    </div>
+
+    <!-- Filters -->
+    <div id="filters" aria-label="Filtros de categorias">
+        <!-- Dinâmico, vai preencher via JS -->
+    </div>
+
+    <!-- Loader -->
+    <div id="loader" aria-live="polite" aria-atomic="true" aria-relevant="additions">
+        <div class="spinner-border text-primary" role="status" aria-hidden="true"></div>
+        <span class="visually-hidden">Carregando resultados...</span>
+    </div>
+
+    <!-- Results -->
+    <div id="results" class="mt-3" role="list" tabindex="0" aria-live="polite" aria-atomic="true" aria-relevant="additions"></div>
+
+    <!-- Nenhum resultado -->
+    <p id="noResults" class="text-center text-muted mt-4" style="display:none;">Nenhum resultado encontrado.</p>
+
+</div>
+
+<!-- Tooltip -->
+<div id="tooltip" class="tooltip-custom" role="tooltip" aria-hidden="true"></div>
+
+<!-- Dark Mode Toggle -->
+<button id="darkToggle" aria-label="Alternar modo escuro" title="Alternar modo escuro" aria-pressed="false">
+    <i class="bi bi-moon-stars-fill"></i>
+</button>
+
+<script>
+    (() => {
+        "use strict";
+
+        // Dados dos projetos — você pode aumentar essa lista como quiser
+        const projects = [
+            {
+                id: 1,
+                title: "Projeto Showcase",
+                text: "Portfólio moderno usando HTML, CSS e JS puro.",
+                url: "https://seusite.com/showcase",
+                category: "web",
+                tooltip: "Inclui modal, filtros e responsividade.",
+                tags: ["portfolio", "frontend", "web"],
+            },
+            {
+                id: 2,
+                title: "Deepwoken Build",
+                text: "Build híbrida com Shadowcast e Thundercall.",
+                url: "https://seusite.com/deepwoken",
+                category: "tools",
+                tooltip: "Ferramenta para jogadores do Deepwoken.",
+                tags: ["game", "build", "tools"],
+            },
+            {
+                id: 3,
+                title: "Sistema de Autoconhecimento",
+                text: "Formulário para se conhecer melhor com login Google.",
+                url: "https://seusite.com/self-knowledge",
+                category: "app",
+                tooltip: "Guia completo para autoconhecimento.",
+                tags: ["form", "self", "login"],
+            },
+            {
+                id: 4,
+                title: "Landing Pages Personalizadas",
+                text: "Crie landings com dados dinâmicos por usuário.",
+                url: "https://seusite.com/landing",
+                category: "web",
+                tooltip: "Controle total e fácil edição.",
+                tags: ["landing", "personal", "web"],
+            },
+            {
+                id: 5,
+                title: "Teste de Personalidade",
+                text: "Teste com resultados gráficos e integração API.",
+                url: "https://seusite.com/teste-personalidade",
+                category: "app",
+                tooltip: "Avalie sua personalidade detalhadamente.",
+                tags: ["personality", "api", "test"],
+            },
+            {
+                id: 6,
+                title: "Project Showcase",
+                text: "Projeto convertido de React + Tailwind para HTML/CSS.",
+                url: "https://seusite.com/project-showcase",
+                category: "web",
+                tooltip: "Modal e filtros funcionais com design clean.",
+                tags: ["portfolio", "css", "html"],
+            },
+            {
+                id: 7,
+                title: "Sistema de Pesquisa Avançada",
+                text: "Pesquisa com autocomplete, filtros e favoritos.",
+                url: "https://seusite.com/search-system",
+                category: "tools",
+                tooltip: "Sistema turbo para busca rápida e fácil.",
+                tags: ["search", "tools", "fast"],
+            },
+            {
+                id: 8,
+                title: "App de Gestão de Projetos",
+                text: "Gerencie seus projetos com drag and drop.",
+                url: "https://seusite.com/project-manager",
+                category: "app",
+                tooltip: "Organização simplificada com interface intuitiva.",
+                tags: ["dragdrop", "manage", "projects"],
+            }
+        ];
+
+        // Estado global
+        const state = {
+            filteredProjects: [],
+            filters: new Set(),
+            favorites: new Set(JSON.parse(localStorage.getItem('favorites') || "[]")),
+            autocompleteSelectedIndex: -1,
+        };
+
+        // Elementos DOM
+        const searchInput = document.getElementById('searchInput');
+        const autocompleteList = document.getElementById('autocomplete-list');
+        const resultsDiv = document.getElementById('results');
+        const filtersDiv = document.getElementById('filters');
+        const tooltip = document.getElementById('tooltip');
+        const loader = document.getElementById('loader');
+        const noResults = document.getElementById('noResults');
+        const darkToggle = document.getElementById('darkToggle');
+        const ariaLive = document.createElement('div');
+        ariaLive.id = "aria-live";
+        ariaLive.setAttribute('aria-live', 'polite');
+        ariaLive.setAttribute('aria-atomic', 'true');
+        ariaLive.style.position = 'absolute';
+        ariaLive.style.width = '1px';
+        ariaLive.style.height = '1px';
+        ariaLive.style.overflow = 'hidden';
+        ariaLive.style.clip = 'rect(1px, 1px, 1px, 1px)';
+        ariaLive.style.clipPath = 'inset(50%)';
+        ariaLive.style.whiteSpace = 'nowrap';
+        document.body.appendChild(ariaLive);
+
+        // Cores e temas
+        function setTheme(dark) {
+            if (dark) {
+                document.documentElement.setAttribute('data-theme', 'dark');
+                darkToggle.setAttribute('aria-pressed', 'true');
+                darkToggle.innerHTML = '<i class="bi bi-sun-fill"></i>';
+            } else {
+                document.documentElement.removeAttribute('data-theme');
+                darkToggle.setAttribute('aria-pressed', 'false');
+                darkToggle.innerHTML = '<i class="bi bi-moon-stars-fill"></i>';
+            }
+        }
+        // Detecta tema pelo horário local
+        function detectSystemTheme() {
+            const hour = new Date().getHours();
+            return (hour >= 18 || hour < 6);
+        }
+        setTheme(detectSystemTheme());
+        darkToggle.addEventListener('click', () => {
+            const isDark = document.documentElement.hasAttribute('data-theme');
+            setTheme(!isDark);
+        });
+
+        // Highlight para texto pesquisado
+        function highlightText(text, query) {
+            if (!query) return text;
+            // Escapa caracteres especiais da regex
+            const escQuery = query.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+            const regex = new RegExp(escQuery, 'gi');
+            return text.replace(regex, match => `<mark>${match}</mark>`);
+        }
+
+        // Renderiza filtros dinâmicos com contador
+        function renderFilters() {
+            const cats = [...new Set(projects.map(p => p.category))];
+            filtersDiv.innerHTML = '';
+            cats.forEach(cat => {
+                const count = projects.filter(p => p.category === cat).length;
+                const btn = document.createElement('button');
+                btn.textContent = `${cat.toUpperCase()} (${count})`;
+                btn.className = 'filter-btn';
+                if (state.filters.has(cat)) btn.classList.add('active');
+                btn.setAttribute('aria-pressed', state.filters.has(cat));
+                btn.addEventListener('click', () => {
+                    if (state.filters.has(cat)) {
+                        state.filters.delete(cat);
+                    } else {
+                        state.filters.add(cat);
+                    }
+                    renderFilters();
+                    applyFilters();
+                });
+                filtersDiv.appendChild(btn);
+            });
+        }
+
+        // Função para filtrar projetos de acordo com pesquisa e filtros
+        function applyFilters() {
+            loader.classList.add('show');
+            noResults.style.display = 'none';
+            // Delay simulado para mostrar loader
+            setTimeout(() => {
+                const query = searchInput.value.trim().toLowerCase();
+                // Filtra por texto e tags + categoria filtro múltiplo
+                state.filteredProjects = projects.filter(p => {
+                    // Filtros categoria
+                    if (state.filters.size > 0 && !state.filters.has(p.category)) {
+                        return false;
+                    }
+                    // Pesquisa texto nos campos title, text, tooltip, tags
+                    const inTitle = p.title.toLowerCase().includes(query);
+                    const inText = p.text.toLowerCase().includes(query);
+                    const inTooltip = p.tooltip.toLowerCase().includes(query);
+                    const inTags = p.tags.some(tag => tag.toLowerCase().includes(query));
+                    return (inTitle || inText || inTooltip || inTags);
+                });
+                renderResults();
+                renderAutocomplete();
+                loader.classList.remove('show');
+            }, 300);
+        }
+
+        // Renderiza os cards dos projetos
+        function renderResults() {
+            resultsDiv.innerHTML = '';
+            if (state.filteredProjects.length === 0) {
+                noResults.style.display = 'block';
+                ariaLive.textContent = 'Nenhum resultado encontrado para a pesquisa.';
+                return;
+            }
+            noResults.style.display = 'none';
+
+            // Garante ordenação colocando favoritos primeiro
+            const sorted = [...state.filteredProjects].sort((a,b) => {
+                const aFav = state.favorites.has(a.id);
+                const bFav = state.favorites.has(b.id);
+                if (aFav && !bFav) return -1;
+                if (!aFav && bFav) return 1;
+                return 0;
+            });
+
+            // Renderiza os cards
+            sorted.forEach(p => {
+                const card = document.createElement('article');
+                card.classList.add('position-relative');
+                card.className = 'card-item show position-relative';
+                card.setAttribute('role', 'listitem');
+                card.setAttribute('tabindex', '0');
+                card.setAttribute('aria-label', `${p.title}, categoria ${p.category}, clique para abrir`);
+                card.draggable = true;
+                // Destaque favoritos
+                if (state.favorites.has(p.id)) {
+                    card.classList.add('selected');
+                }
+
+                // Ícone categoria com SVG
+
+
+                // Favoritar
+                const favBtn = document.createElement('span');
+                favBtn.className = 'fav-icon';
+                favBtn.innerHTML = state.favorites.has(p.id) ? '<i class="bi bi-star-fill"></i>' : '<i class="bi bi-star"></i>';
+                favBtn.setAttribute('role', 'button');
+                favBtn.setAttribute('aria-label', state.favorites.has(p.id) ? 'Remover dos favoritos' : 'Adicionar aos favoritos');
+                favBtn.tabIndex = 0;
+                favBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    toggleFavorite(p.id);
+                });
+                favBtn.addEventListener('keydown', e => {
+                    if(e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        toggleFavorite(p.id);
+                    }
+                });
+                card.appendChild(favBtn);
+
+                // Conteúdo principal
+                const title = document.createElement('h2');
+                title.className = 'card-title';
+                title.innerHTML = highlightText(p.title, searchInput.value);
+                card.appendChild(title);
+
+                const text = document.createElement('p');
+                text.className = 'card-text';
+                text.innerHTML = highlightText(p.text, searchInput.value);
+                card.appendChild(text);
+
+                // Clique abre URL
+                card.addEventListener('click', () => {
+                    window.open(p.url, '_blank', 'noopener');
+                });
+                card.addEventListener('keydown', e => {
+                    if(e.key === 'Enter') {
+                        window.open(p.url, '_blank', 'noopener');
+                    }
+                });
+
+                // Tooltip on hover with delay
+                let tooltipTimeout;
+                card.addEventListener('mouseenter', e => {
+                    tooltipTimeout = setTimeout(() => {
+                        showTooltip(e, p.tooltip);
+                    }, 600);
+                });
+                card.addEventListener('mousemove', e => {
+                    moveTooltip(e);
+                });
+                card.addEventListener('mouseleave', () => {
+                    clearTimeout(tooltipTimeout);
+                    hideTooltip();
+                });
+
+                // Drag and Drop support for rearranging
+                card.addEventListener('dragstart', e => {
+                    e.dataTransfer.setData('text/plain', p.id);
+                    e.currentTarget.style.opacity = '0.5';
+                });
+                card.addEventListener('dragend', e => {
+                    e.currentTarget.style.opacity = '1';
+                });
+                card.addEventListener('dragover', e => {
+                    e.preventDefault();
+                });
+                card.addEventListener('drop', e => {
+                    e.preventDefault();
+                    const draggedId = parseInt(e.dataTransfer.getData('text/plain'));
+                    const targetId = p.id;
+                    if (draggedId === targetId) return;
+
+                    reorderProjects(draggedId, targetId);
+                });
+
+                resultsDiv.appendChild(card);
+            });
+            ariaLive.textContent = `${state.filteredProjects.length} resultado(s) exibido(s).`;
+        }
+
+        // Drag and Drop: reorder projetos na lista e salvar no localStorage
+        function reorderProjects(draggedId, targetId) {
+            // Ordenação atual (filtrada)
+            let order = JSON.parse(localStorage.getItem('projectOrder') || JSON.stringify(projects.map(p => p.id)));
+            const fromIndex = order.indexOf(draggedId);
+            const toIndex = order.indexOf(targetId);
+            if (fromIndex === -1 || toIndex === -1) return;
+
+            // Remove do lugar antigo
+            order.splice(fromIndex, 1);
+            // Insere no lugar novo
+            order.splice(toIndex, 0, draggedId);
+
+            // Atualiza localStorage
+            localStorage.setItem('projectOrder', JSON.stringify(order));
+            // Reordena o array projects conforme order
+            projects.sort((a,b) => order.indexOf(a.id) - order.indexOf(b.id));
+
+            applyFilters();
+        }
+
+        // Favoritar projeto
+        function toggleFavorite(id) {
+            if (state.favorites.has(id)) {
+                state.favorites.delete(id);
+            } else {
+                state.favorites.add(id);
+            }
+            localStorage.setItem('favorites', JSON.stringify([...state.favorites]));
+            applyFilters();
+        }
+
+        // Renderiza autocomplete
+        function renderAutocomplete() {
+            autocompleteList.innerHTML = '';
+            const query = searchInput.value.trim().toLowerCase();
+            if (!query) return;
+
+            // Filtra para autocomplete até 5 itens
+            const matches = projects.filter(p =>
+                p.title.toLowerCase().includes(query) ||
+                p.text.toLowerCase().includes(query) ||
+                p.tags.some(t => t.toLowerCase().includes(query))
+            ).slice(0, 5);
+
+            if (matches.length === 0) {
+                autocompleteList.style.display = 'none';
+                return;
+            }
+
+            autocompleteList.style.display = 'block';
+
+            matches.forEach((p, index) => {
+                const item = document.createElement('li');
+                item.className = 'autocomplete-item';
+                item.innerHTML = highlightText(p.title, query);
+                item.tabIndex = 0;
+                item.setAttribute('role', 'option');
+                item.setAttribute('aria-selected', 'false');
+
+                item.addEventListener('click', () => {
+                    searchInput.value = p.title;
+                    autocompleteList.style.display = 'none';
+                    applyFilters();
+                });
+                item.addEventListener('keydown', e => {
+                    if(e.key === "Enter") {
+                        searchInput.value = p.title;
+                        autocompleteList.style.display = 'none';
+                        applyFilters();
+                    } else if (e.key === "ArrowDown") {
+                        e.preventDefault();
+                        if(index < matches.length - 1) {
+                            autocompleteList.children[index + 1].focus();
+                        }
+                    } else if (e.key === "ArrowUp") {
+                        e.preventDefault();
+                        if(index > 0) {
+                            autocompleteList.children[index - 1].focus();
+                        } else {
+                            searchInput.focus();
+                        }
+                    }
+                });
+                autocompleteList.appendChild(item);
+            });
+        }
+
+        // Tooltip functions
+        function showTooltip(e, text) {
+            tooltip.textContent = text;
+            tooltip.style.display = 'block';
+            moveTooltip(e);
+        }
+        function moveTooltip(e) {
+            const offsetX = 15;
+            const offsetY = 15;
+            const ttWidth = tooltip.offsetWidth;
+            const ttHeight = tooltip.offsetHeight;
+            let x = e.pageX + offsetX;
+            let y = e.pageY + offsetY;
+
+            // Limita tooltip para não sair da tela
+            if (x + ttWidth > window.innerWidth) {
+                x = e.pageX - ttWidth - offsetX;
+            }
+            if (y + ttHeight > window.innerHeight) {
+                y = e.pageY - ttHeight - offsetY;
+            }
+            tooltip.style.left = x + 'px';
+            tooltip.style.top = y + 'px';
+        }
+        function hideTooltip() {
+            tooltip.style.display = 'none';
+        }
+
+        // Eventos
+        searchInput.addEventListener('input', () => {
+            state.autocompleteSelectedIndex = -1;
+            applyFilters();
+        });
+
+        searchInput.addEventListener('keydown', e => {
+            const items = autocompleteList.querySelectorAll('.autocomplete-item');
+            if (e.key === "ArrowDown") {
+                e.preventDefault();
+                if(state.autocompleteSelectedIndex < items.length - 1) {
+                    state.autocompleteSelectedIndex++;
+                    items[state.autocompleteSelectedIndex].focus();
+                }
+            } else if (e.key === "ArrowUp") {
+                e.preventDefault();
+                if(state.autocompleteSelectedIndex > 0) {
+                    state.autocompleteSelectedIndex--;
+                    items[state.autocompleteSelectedIndex].focus();
+                } else {
+                    searchInput.focus();
+                    state.autocompleteSelectedIndex = -1;
+                }
+            } else if (e.key === "Escape") {
+                autocompleteList.style.display = 'none';
+                state.autocompleteSelectedIndex = -1;
+            }
+        });
+
+        // Inicializa filtros e aplica inicialmente
+        renderFilters();
+        // Ordena projetos conforme localStorage (ou padrão)
+        const savedOrder = JSON.parse(localStorage.getItem('projectOrder') || JSON.stringify(projects.map(p => p.id)));
+        projects.sort((a,b) => savedOrder.indexOf(a.id) - savedOrder.indexOf(b.id));
+        applyFilters();
+
+    })();
+</script>
+</body>
+</html>
